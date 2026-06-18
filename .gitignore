@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Never commit licensed / raw market data
+*.parquet
+*.feather
+*.h5
+*.hdf5
+data/raw/
+data/wrds/
+data/crsp/
+data/compustat/
+data/databento/
+data/oanda/
+*.dbn
+*.dbn.zst
+
+# Secrets
+.env
+*.key
+*.pem
+credentials*.json
+trading_env.sh
+
+# OS
+.DS_Store
+Thumbs.db

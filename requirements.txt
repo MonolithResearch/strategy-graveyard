@@ -1,0 +1,6 @@
+# Strategy Graveyard — demo + chart dependencies (Python 3.14)
+# Install:  py -3.14 -m pip install -r requirements.txt
+numpy>=2.0
+scipy>=1.13
+matplotlib>=3.8
+pytest>=8.0   # py -3.14 -m pytest -q  (known-answer + dataset-honesty tests)
