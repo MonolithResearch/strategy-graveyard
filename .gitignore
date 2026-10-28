@@ -30,3 +30,9 @@ trading_env.sh
 # OS
 .DS_Store
 Thumbs.db
+
+# Local recovery and test artifacts
+*.bak_*
+*.backup_*
+.pytest_cache/
+artifacts/

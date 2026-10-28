@@ -13,6 +13,7 @@ Brand: Monolith Research. Palette Ink #0E0C14 / Plum #A78AA3 / Paper #F3EFE8.
 Run:  py -3.14 scripts/make_graveyard_chart.py
 """
 import csv
+from audit_dataset import audit
 import os
 
 import matplotlib
@@ -36,8 +37,8 @@ TIER_C = {
     4: "#5A5560",  # structurally dead
 }
 TIER_LABEL = {
-    1: "Beta mirage (high DSR = market beta, no alpha)",
-    2: "Real signal, undeployable (funding-grade)",
+    1: "Beta / mark sensitivity (historical label)",
+    2: "Funding / access limited (historical label)",
     3: "Overfit / sign-flips out-of-sample (noise)",
     4: "Structurally dead (multi-confirmed)",
 }
@@ -73,6 +74,7 @@ def load_rows():
 
 
 def main():
+    summary = audit()
     rows = load_rows()
     names = [r["name"] for r in rows]
     dsrs = [r["dsr"] for r in rows]
@@ -89,7 +91,7 @@ def main():
     ax.axvline(GATE, color=GATE_C, linewidth=2.0, linestyle="-", zorder=5)
     ax.text(
         GATE + 0.02, len(rows) * 0.32,
-        "PROMOTION GATE  ·  DSR ≥ 0.50", color=GATE_C, fontsize=10.5,
+        "DSR COMPONENT  ·  THRESHOLD 0.50", color=GATE_C, fontsize=10.5,
         fontweight="bold", fontfamily="DejaVu Sans", rotation=90,
         va="center", ha="center", zorder=6,
         bbox=dict(facecolor=PAPER, edgecolor="none", pad=2.0, alpha=0.85),
@@ -105,7 +107,7 @@ def main():
     ax.set_yticks(list(y))
     ax.set_yticklabels(names, fontsize=9.5, color=INK)
     ax.set_xlim(0, max(GATE + 0.10, max(dsrs) + 0.10))
-    ax.set_xlabel("Honest blind out-of-sample Deflated Sharpe (DSR)",
+    ax.set_xlabel("Historical reported Deflated Sharpe (DSR)",
                   fontsize=12, color=INK)
 
     # Sigma + title block
@@ -116,11 +118,11 @@ def main():
     fig.text(0.105, 0.951, "Evidence over narrative", fontsize=10, color="#7A6177",
              style="italic", va="center")
     fig.text(0.063, 0.918,
-             "The Strategy Graveyard — 34 ideas graded on honest out-of-sample evidence",
+             f"The Strategy Graveyard — {summary['rows']} historical research summaries",
              fontsize=15, color=INK, fontweight="bold", va="center")
     fig.text(0.063, 0.898,
-             "Ranked by the most honest gate-applicable DSR a deployable version "
-             "faces. The two longest bars are gold beta, not skill.",
+             f"{summary['rows_with_dsr']} reported DSR values; missing values are omitted. Historical summaries are not fresh backtests.\n"
+             f"{summary['gate_counts']['INCOMPLETE']} rows lack at least one numeric gate input; the DSR threshold alone cannot establish a pass.",
              fontsize=9.5, color="#4A4652", va="center")
 
     # legend by tier (only tiers present)
@@ -132,7 +134,7 @@ def main():
             present.append(r["tier"])
     handles = [Patch(facecolor=TIER_C[t], edgecolor=INK, label=TIER_LABEL[t])
                for t in sorted(present)]
-    handles.append(Patch(facecolor="none", edgecolor=GATE_C, label="Promotion gate (DSR ≥ 0.50)"))
+    handles.append(Patch(facecolor="none", edgecolor=GATE_C, label="DSR component threshold (0.50)"))
     ax.legend(handles=handles, loc="lower right", fontsize=8.5, frameon=True,
               facecolor=PAPER, edgecolor=INK)
 
@@ -148,6 +150,7 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     out_png = os.path.join(OUT_DIR, "dsr_graveyard.png")
     fig.savefig(out_png, dpi=150, facecolor=PAPER)
+    plt.close(fig)
     print(f"wrote {out_png}")
 
 

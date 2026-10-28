@@ -1,94 +1,97 @@
 <div align="center">
-
-<img src="assets/sigma-mark-plum.svg" width="80" alt="Monolith Σ mark" />
+<img src="assets/sigma-mark-plum.svg" width="72" alt="Monolith Sigma mark" />
 
 # The Strategy Graveyard
 
-**I treat my own ideas as adversaries. This is where I keep the autopsies.**
+**Research post-mortems, reproducible checks, and the limits of a good backtest.**
 
-Σ · MONOLITH RESEARCH · *Evidence over narrative*
-
-![strategies](https://img.shields.io/badge/strategies_graded-34-0E0C14)
-![method](https://img.shields.io/badge/validation-PSR_·_DSR_·_PBO%2FCSCV-A78AA3)
-![live](https://img.shields.io/badge/live_book-private-2E7D5B)
-
+39 historical summaries · 8 case studies · Synthetic demonstration
 </div>
 
----
+Monolith Research's record of rejected and constrained trading ideas. The useful
+result is often an identified failure: selection bias, ordinary market exposure,
+execution costs, an unavailable data vintage, or a signal that disappears when
+the experiment becomes tradeable.
 
-Most quant "research" is a hunt for the backtest that confirms a hope. I do the opposite: I try to **kill** every idea I have, on honest out-of-sample evidence, before it ever touches real capital.
+These are **historical summary records**, not 39 newly reproduced backtests.
+Only **2 rows contain all three numeric gate inputs**; both fail that screen.
+The other **37 are incomplete for this numeric gate**. Missing evidence is not
+a tested failure or a pass. Many cases have separate documented reasons for
+rejection. No current live strategy or performance is claimed here.
 
-This repo is the filter. Here are **34 strategies** I put through a blind out-of-sample gate. Most research doesn't survive that — *that is what the gate is for*. The ones that didn't make the cut are documented here in full, with the real numbers, no truncated curves, no favourable rounding. The strategy that **is** on live capital stays private.
-
-This isn't a list of failures. It's the discipline that makes the thing I *do* keep worth trusting — and it's how you compete with desks fifty times your size: by being ruthless about what's real.
-
-> **Live book:** one strategy runs on live capital and stays private — ▒▒▒▒▒▒▒▒ *(redacted)*. Everything in this repo is the research *behind* getting there, not the live book itself.
-
-## The gate
-
-```
-DSR ≥ 0.50      PBO ≤ 0.20      trades ≥ 50      (+ positive net of 3× cost, clean placebo)
-```
-
-Run on my own validation library — PSR, Deflated Sharpe (explicit trial count + Euler–Mascheroni), PBO via CSCV, covered by known-answer tests → **[quant-validation](https://github.com/MonolithResearch/quant-validation)**.
-
-## The whole field, ranked
-
-<div align="center">
-
-![DSR graveyard chart](charts/dsr_graveyard.png)
-
-</div>
-
-Each bar is the most honest, gate-applicable Deflated Sharpe a deployable version would actually face — blind held-out OOS for the rebuilds, live-realistic DSR for the alt-data work. In-sample numbers are kept for context but never used to rank.
-
-The two longest bars — **Gold timing (0.686)** and **Core legacy (0.668)** — are the lesson, not the win: they aren't alpha, they're gold buy-and-hold beta in a 2023–26 bull. The single most valuable thing a gate does is reject your *best-looking* Sharpes, and here it does exactly that. Strip the beta and the whole field sits below DSR 0.05.
+## Reproduce the public checks
 
 ```bash
-py -3.14 scripts/make_graveyard_chart.py   # regenerate from the public data
+python -m pip install -r requirements.txt
+python -m pytest -q
+python scripts/audit_dataset.py
+python scripts/demo_validation.py
+python scripts/make_graveyard_chart.py
 ```
 
-## How a strategy ends up here
+Python 3.14 was used for local verification. Tests and demonstrations run offline
+after dependency setup. The demo generates its own inputs; the dataset audit
+validates summary structure and evidence coverage, not underlying returns.
 
-| Category | What it means | Examples |
-|----------|---------------|----------|
-| **Live — private** | On real capital, internals withheld | ▒▒▒▒▒▒ *(redacted)* |
-| **Beta mirage** | High DSR, but it's just market beta | Gold timing (0.686), Core legacy (0.668), Equity XS-momentum (0.329) |
-| **Funding-grade** | A *real* signal, killed by cost / capacity / decay | Weather→gas (R² 0.946, DSR 0.112), Shipping import-volume (0.77 → 0.037), Turn-of-month, PEAD |
-| **Overfit / sign-flips** | The in-sample number was selection; OOS reverses | OFI+DeepLOB (10.81 → −14.63 net), Session clock (2.65 → −1.98), TSMOM ensemble (1.72 → 0.108), GA miner (88,632 trials → neg) |
-| **Structurally dead** | Multi-confirmed dead across rebuilds | Mean-reversion pairs (5.47 → −0.54, 7× dead), Cross-asset OU (6× dead), Cross-sectional value |
+Start with [evidence and provenance](PROVENANCE.md), then the
+[research lessons](WHY_IT_WORKS_THIS_WAY.md). The
+[validation library](https://github.com/MonolithResearch/quant-validation)
+is the companion technical project.
 
-Full sanitized dataset: [`data/gate_ranking_public.csv`](data/gate_ranking_public.csv).
+## The numeric screen
 
-## Six post-mortems
-
-| # | Strategy | The hook | Why it was retired |
-|---|----------|----------|--------------------|
-| [01](case_studies/01_ou_m5_stat_arb.md) | **Mean-reversion pairs** | IS Sharpe **5.47** → OOS **−0.54** | Textbook max-order-statistic mirage; the honest single config is itself negative in-sample |
-| [02](case_studies/02_ofi_deeplob.md) | **Order-flow + DeepLOB** | IS **10.81** → net **−14.63** at 3× cost | Foresight is real (+1.3 bp/trade); it sits below the cost bar |
-| [03](case_studies/03_gp_us_equity.md) | **Genetic-programming US equity** | OOS 0.71, FF6 α 7.2%/yr, placebo-clean | Caught by a **pre-registered blind holdout** (gross Sharpe 0.03) |
-| [04](case_studies/04_cot_anti_crowding.md) | **COT anti-crowding** | Best tertile OOS **+0.50** | Locked holdout **−0.40**; it was momentum in disguise |
-| [05](case_studies/05_weather_gas_nowcast.md) | **Weather → gas nowcast** | Walk-forward OOS **R² 0.946** | Genuine skill, below the cost bar (already priced, DSR 0.112) |
-| [06](case_studies/06_strategy_17_ensemble.md) | **TSMOM ensemble** | Headline **1.72** → 17.6yr OOS **0.108** | A live book I retired the moment the honest number caught up with it |
-
-## Ground rules
-
-No live edge here — the strategy on real capital is private and never appears. No licensed data — exchange order books and point-in-time equity panels (CRSP/Compustat) stay under their terms; only methodology and summary statistics are published, and the demos run on small synthetic samples. No deployable parameters — descriptions and honest scores, never the knobs that would let someone re-trade a retired idea.
-
-```bash
-py -3.14 scripts/demo_validation.py   # runnable PSR/DSR/PBO demo on synthetic data
+```text
+DSR >= 0.50 AND PBO <= 0.20 AND OOS trades >= 50
 ```
 
-## About
+These are this project's historical thresholds, not universal scientific cutoffs.
+A numeric pass would still require reliable timing, full search accounting,
+credible execution costs, exposure analysis and an appropriate confirmation test.
+DSR is an approximation under assumptions; it does not certify truth or liquidity.
 
-**Monolith Research** is my quant startup. I'm **Bilal Malik** — Lancaster Finance (first-year: First Class), IMC Prosperity **top 15 of ~2,200**, IBT high distinction, multilingual. I run one strategy on live capital and keep it private; this repo is the research discipline behind it — the part that generalises. *(A small FTMO funded account runs on the side.)*
+![Historical DSR summaries](charts/dsr_graveyard.png)
 
-Part of my portfolio → **[github.com/05bilalmalik-cmd](https://github.com/05bilalmalik-cmd)**
+The chart shows 34 reported DSR values. Five records lack a reported DSR and are
+omitted. The bars mix historically documented designs and evidence scopes; use
+them for navigation, not as a standardized ranking of independently rerun studies.
 
-> The gate retired both of my own live strategies before this list was even written. That isn't a bug in the process. That *is* the process.
+## Eight post-mortems
 
-<div align="center">
+- [Mean-reversion pairs](case_studies/01_ou_m5_stat_arb.md): search selection and
+  an out-of-sample reversal.
+- [Order flow and DeepLOB](case_studies/02_ofi_deeplob.md): predictive structure
+  that did not clear the modeled execution-cost barrier.
+- [Genetic-programming equity](case_studies/03_gp_us_equity.md): a promising
+  development result rejected by a registered holdout.
+- [COT anti-crowding](case_studies/04_cot_anti_crowding.md): weak held-out evidence
+  and ordinary momentum exposure.
+- [Weather and natural gas](case_studies/05_weather_gas_nowcast.md): forecast
+  accuracy and tradeable incremental information are different questions.
+- [Trend ensemble](case_studies/06_strategy_17_ensemble.md): a long-history
+  reassessment of an earlier headline.
+- [Option-implied vol-spread](case_studies/07_vol_spread_microcap.md): a favorable
+  historical DSR failed to settle liquidity and universe sensitivity.
+- [Closed-end-fund discounts](case_studies/08_cef_discount_reversion.md):
+  residual beta and sensitivity to an execution delay.
 
-— Σ —
+The first six articles retain their historical wording. Their dated numerical and
+operational statements are not assertions about present systems. The two added
+articles distinguish reported measurements from interpretations of their cause.
 
-</div>
+## What a reviewer can inspect
+
+`scripts/audit_dataset.py` validates schema, finite domains, unique ranks/names,
+and complete versus missing gate evidence. `scripts/demo_validation.py` includes
+actual combinatorially symmetric half-block validation with independent-reference
+tests, explicit tie handling and no full-sample shortlist selection. Its small PBO
+panel is illustrative and cannot certify a winner selected from a larger search.
+
+Licensed market data, account records and trading credentials are not included.
+The original empirical studies cannot be independently replayed from this public
+summary alone. See [PROVENANCE.md](PROVENANCE.md) for that boundary and changes
+made during the 2026-10-28 publication.
+
+Maintained by **Bilal Malik / Monolith Research**.
+[GitHub profile](https://github.com/05bilalmalik-cmd) ·
+[Quantitative validation](https://github.com/MonolithResearch/quant-validation) ·
+[Microstructure project](https://github.com/MonolithResearch/deeplob-microstructure)

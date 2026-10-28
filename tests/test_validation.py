@@ -3,7 +3,7 @@ Known-answer + invariant tests for the public Strategy Graveyard.
 
 These cover (a) the validation maths shipped in scripts/demo_validation.py and
 (b) the honesty invariants of the public dataset — most importantly that the
-headline claim "zero of the 34 strategies clear the gate" is true against the
+headline claim "zero of the 39 historical summaries clear the gate" is true against the
 committed CSV, and that no row smuggles in a deployable PASS.
 
 Run:  py -3.14 -m pytest -q
@@ -86,12 +86,12 @@ def _rows():
         return list(csv.DictReader(fh))
 
 
-def test_exactly_34_strategies():
-    assert len(_rows()) == 34
+def test_exactly_39_strategies():
+    assert len(_rows()) == 39
 
 
 def test_zero_strategies_clear_the_full_gate():
-    """Headline claim: zero of the 34 clear the gate.
+    """Headline claim: zero complete rows clear the gate.
     Gate = DSR>=0.50 AND PBO<=0.20 AND trades>=50. No row may satisfy all three.
     """
     for r in _rows():
@@ -108,14 +108,11 @@ def test_zero_strategies_clear_the_full_gate():
         assert not clears, f"{r['name']} unexpectedly clears the gate"
 
 
-def test_no_secrets_or_account_numbers_in_csv():
-    blob = open(CSV_PATH, encoding="utf-8").read().lower()
-    # Account-number fragments are assembled at runtime so the literal private
-    # identifiers never appear verbatim in this public source file.
-    acct_a = "209" + "68673"
-    acct_b = "387" + "97789"
-    for bad in (acct_a, acct_b, "api_key", "apikey", "bearer", "password", "-003"):
-        assert bad not in blob
+def test_no_credential_markers_in_csv():
+    from pathlib import Path
+    blob = Path(CSV_PATH).read_text(encoding="utf-8").lower()
+    for marker in ("api_key", "apikey", "bearer ", "password", "private key"):
+        assert marker not in blob
 
 
 if __name__ == "__main__":

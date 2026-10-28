@@ -1,131 +1,129 @@
+"""Offline synthetic demonstration of PSR, DSR and genuine half-block CSCV.
+
+This educational implementation is not a promotion gate. It supplies neither
+trade-count evidence nor execution/market-data validation. The published CSV is
+historical summary evidence and is not recomputed by this demonstration.
+
+References: Bailey & Lopez de Prado (2014), Deflated Sharpe Ratio;
+Bailey et al. (2017), Probability of Backtest Overfitting.
 """
-demo_validation.py
-==================
-A small, fully self-contained demonstration of the validation core that grades
-every strategy in this graveyard, run on SYNTHETIC data only. No licensed data,
-no live-strategy logic — just the maths that turns a pretty backtest into an
-honest verdict.
+from itertools import combinations
+from math import comb, sqrt
+from numbers import Integral
 
-It implements:
-  * Probabilistic Sharpe Ratio (PSR)        Bailey & Lopez de Prado, SSRN 1821643
-  * Deflated Sharpe Ratio    (DSR)          Bailey & Lopez de Prado, SSRN 2460551
-  * Probability of Backtest Overfitting (PBO) via a simplified CSCV
-
-and then re-tells the graveyard's central lesson with a synthetic search:
-pick the best of N noisy strategies, watch the raw Sharpe look great and the
-DEFLATED Sharpe correctly collapse to ~0.
-
-Run:  py -3.14 scripts/demo_validation.py
-"""
 import numpy as np
-from math import erf, sqrt, log, pi
-from scipy.stats import norm
+from scipy.stats import norm, rankdata
 
-RNG = np.random.default_rng(20260617)
 
-# ----------------------------------------------------------------------------
-# Sharpe + PSR
-# ----------------------------------------------------------------------------
+def _returns(values):
+    r = np.asarray(values, dtype=float)
+    if r.ndim != 1 or r.size < 2 or not np.isfinite(r).all():
+        raise ValueError("returns must be a finite one-dimensional series of length >= 2")
+    return r
+
+
 def sharpe(returns):
-    r = np.asarray(returns, float)
+    """Nonannualized sample Sharpe; zero variance is assigned zero, not infinity."""
+    r = _returns(returns)
+    if np.all(r == r[0]):
+        return 0.0
     sd = r.std(ddof=1)
-    return 0.0 if sd == 0 else r.mean() / sd
+    return 0.0 if sd == 0 else float(r.mean() / sd)
 
 
 def psr(returns, sr_benchmark=0.0):
-    """Probabilistic Sharpe Ratio: P(true SR > benchmark) given skew/kurtosis."""
-    r = np.asarray(returns, float)
-    n = len(r)
-    sr = sharpe(r)
-    sd = r.std(ddof=1)
-    g3 = ((r - r.mean()) ** 3).mean() / sd ** 3          # skew
-    g4 = ((r - r.mean()) ** 4).mean() / sd ** 4          # kurtosis (raw)
-    denom = sqrt(1 - g3 * sr + (g4 - 1) / 4.0 * sr ** 2)
-    z = (sr - sr_benchmark) * sqrt(n - 1) / denom
-    return norm.cdf(z)
-
-
-# ----------------------------------------------------------------------------
-# Deflated Sharpe Ratio
-# ----------------------------------------------------------------------------
-def expected_max_sharpe(n_trials, var_sr):
-    """E[max SR] of n_trials independent N(0, var_sr) Sharpes (Bailey-LdP)."""
-    if n_trials < 2:
+    """Normal-approximation PSR, with no favorable result for zero variance."""
+    r = _returns(returns)
+    if not np.isfinite(sr_benchmark):
+        raise ValueError("benchmark must be finite")
+    if np.all(r == r[0]):
         return 0.0
-    e = 0.5772156649015329  # Euler-Mascheroni
-    z1 = norm.ppf(1 - 1.0 / n_trials)
-    z2 = norm.ppf(1 - 1.0 / (n_trials * np.e))
-    return sqrt(var_sr) * ((1 - e) * z1 + e * z2)
+    sd = r.std(ddof=1)
+    if sd == 0:
+        return 0.0
+    sr = float(r.mean() / sd)
+    centered = (r - r.mean()) / sd
+    g3, g4 = np.mean(centered ** 3), np.mean(centered ** 4)
+    variance = 1 - g3 * sr + (g4 - 1) * sr ** 2 / 4
+    if not np.isfinite(variance) or variance <= 0:
+        raise ValueError("PSR approximation has non-positive or non-finite variance")
+    return float(norm.cdf((sr - sr_benchmark) * sqrt(len(r) - 1) / sqrt(variance)))
+
+
+def expected_max_sharpe(n_trials, var_sr):
+    """Expected max of independent null Sharpes; input variance is per period."""
+    if isinstance(n_trials, (bool, np.bool_)) or not isinstance(n_trials, Integral) or n_trials < 1:
+        raise ValueError("n_trials must be a positive integer")
+    if not np.isfinite(var_sr) or var_sr < 0:
+        raise ValueError("trial-Sharpe variance must be finite and non-negative")
+    if n_trials == 1:
+        return 0.0
+    euler = 0.5772156649015329
+    return float(sqrt(var_sr) * ((1 - euler) * norm.isf(1 / n_trials)
+        + euler * norm.isf(1 / (n_trials * np.e))))
 
 
 def dsr(returns, n_trials, var_sr_across_trials):
-    """Deflated Sharpe: PSR benchmarked against the expected max of the search."""
-    sr_star = expected_max_sharpe(n_trials, var_sr_across_trials)
-    return psr(returns, sr_benchmark=sr_star)
+    return psr(returns, expected_max_sharpe(n_trials, var_sr_across_trials))
 
 
-# ----------------------------------------------------------------------------
-# PBO via a simplified CSCV
-# ----------------------------------------------------------------------------
+def _column_sharpes(values):
+    sd = values.std(axis=0, ddof=1)
+    # Repeated decimal floats can have tiny nonzero computed sample variance.
+    # Inspect observations themselves rather than treating rounding as evidence.
+    varying = np.any(values != values[0], axis=0)
+    return np.divide(values.mean(axis=0), sd, out=np.zeros(values.shape[1]),
+                     where=(sd > 0) & varying)
+
+
 def pbo_cscv(matrix, n_splits=10):
+    """Enumerate every equal half-block IS/OOS partition.
+
+    Rows must divide exactly into an even number of blocks. Relative OOS ranks
+    are one-based midranks divided by M+1. Logit <= 0 counts as overfit, so an
+    exact median tie is conservatively included. Tied IS winners contribute
+    equally, avoiding arbitrary dependence on column order. No rows are dropped.
+    A 20,000-partition cap bounds accidental combinatorial work.
     """
-    matrix: (T observations x M strategies) of returns.
-    Returns the Probability of Backtest Overfitting: how often the IS-best
-    strategy lands below the median OOS.
-    """
-    T, M = matrix.shape
-    block = T // n_splits
-    losses = 0
-    trials = 0
-    for k in range(n_splits):
-        oos_idx = np.zeros(T, bool)
-        oos_idx[k * block:(k + 1) * block] = True
-        is_idx = ~oos_idx
-        is_sr = np.array([sharpe(matrix[is_idx, m]) for m in range(M)])
-        oos_sr = np.array([sharpe(matrix[oos_idx, m]) for m in range(M)])
-        best = int(np.argmax(is_sr))
-        rank = (oos_sr < oos_sr[best]).sum() / M  # fraction worse than best
-        losses += 1 if rank < 0.5 else 0          # best is below OOS median
-        trials += 1
-    return losses / trials
+    m = np.asarray(matrix, dtype=float)
+    if m.ndim != 2 or m.shape[1] < 2 or not np.isfinite(m).all():
+        raise ValueError("matrix must be finite, two-dimensional and contain >= 2 strategies")
+    if (isinstance(n_splits, (bool, np.bool_)) or not isinstance(n_splits, Integral)
+            or n_splits < 2 or n_splits % 2 or n_splits > 16):
+        raise ValueError("n_splits must be an even integer from 2 to 16")
+    if len(m) % n_splits or len(m) // n_splits < 2:
+        raise ValueError("equal blocks with >= 2 observations are required; no silent truncation")
+    if comb(n_splits, n_splits // 2) > 20_000:
+        raise ValueError("too many CSCV partitions")
+    blocks = np.split(np.arange(len(m)), n_splits)
+    outcomes = []
+    for selected in combinations(range(n_splits), n_splits // 2):
+        train = np.concatenate([blocks[i] for i in selected])
+        test = np.concatenate([blocks[i] for i in range(n_splits) if i not in selected])
+        train_sr = _column_sharpes(m[train])
+        test_sr = _column_sharpes(m[test])
+        winners = np.flatnonzero(train_sr == train_sr.max())
+        relative_rank = rankdata(test_sr, method="average") / (m.shape[1] + 1)
+        outcomes.append(float(np.mean(relative_rank[winners] <= 0.5)))
+    return float(np.mean(outcomes))
 
 
-# ----------------------------------------------------------------------------
-# The graveyard lesson, reproduced on synthetic data
-# ----------------------------------------------------------------------------
 def main():
-    T = 1000
-
-    # 1) A genuinely good strategy: small positive edge.
-    good = RNG.normal(0.05, 1.0, T)
-    print("=== A genuinely (mildly) good single strategy ===")
-    print(f"  Sharpe         : {sharpe(good):+.3f}")
-    print(f"  PSR (vs 0)     : {psr(good):.3f}")
-    print(f"  DSR (1 trial)  : {dsr(good, 1, 0.0):.3f}")
-    print()
-
-    # 2) The mirage: search N pure-noise strategies, keep the best.
-    for N in (100, 7060, 88632):
-        bank = RNG.normal(0.0, 1.0, size=(T, N))     # all zero-edge noise
-        sr_each = np.array([sharpe(bank[:, m]) for m in range(N)])
-        var_sr = sr_each.var(ddof=1)
-        best_m = int(np.argmax(sr_each))
-        best = bank[:, best_m]
-        d = dsr(best, N, var_sr)
-        # PBO uses a manageable slice of the search for the CSCV grid
-        sub = bank[:, np.argsort(sr_each)[-min(N, 50):]]
-        pbo = pbo_cscv(sub, n_splits=10)
-        print(f"=== Best of N={N:,} PURE-NOISE strategies (no real edge) ===")
-        print(f"  Best raw Sharpe : {sharpe(best):+.3f}   <- looks deployable")
-        print(f"  Deflated Sharpe : {d:.3f}   <- the search penalty bites")
-        print(f"  PBO (CSCV)      : {pbo:.3f}")
-        print(f"  GATE (DSR>=0.50, PBO<=0.20): "
-              f"{'PASS' if (d >= 0.5 and pbo <= 0.2) else 'FAIL'}")
-        print()
-
-    print("Lesson: a high in-sample Sharpe from a large search is evidence of "
-          "the\nsearch, not the signal. The deflated Sharpe undoes it. This is "
-          "exactly\nwhy every one of the 34 graveyard strategies fails the gate.")
+    rng = np.random.default_rng(20260617)
+    print("SYNTHETIC DEMONSTRATION - no market or promotion-gate verdict")
+    print("Per-period Sharpe; DSR uses the complete simulated search dispersion.")
+    for n in (100, 1000, 5000):
+        bank = rng.normal(0, 1, size=(600, n))
+        sr_each = _column_sharpes(bank)
+        best = bank[:, int(np.argmax(sr_each))]
+        # Fixed column membership chosen without looking at performance.
+        subset = bank[:, :min(n, 30)]
+        print(f"N={n:5d} | best SR={sharpe(best):.4f} | "
+              f"DSR={dsr(best, n, sr_each.var(ddof=1)):.4f} | "
+              f"CSCV PBO (first {subset.shape[1]} candidates)={pbo_cscv(subset):.4f}")
+    print("Subset PBO does not validate the full search winner. Missing trade and")
+    print("execution evidence means no PASS. Noise can still score well by chance;")
+    print("DSR is an approximation under assumptions, not a guarantee of truth.")
 
 
 if __name__ == "__main__":

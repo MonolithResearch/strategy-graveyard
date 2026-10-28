@@ -1,0 +1,2 @@
+# Keep the audited dataset bytes stable across Windows and Linux checkouts.
+data/gate_ranking_public.csv -text
