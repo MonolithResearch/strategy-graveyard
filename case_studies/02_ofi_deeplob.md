@@ -1,5 +1,11 @@
 # Σ Case study — Order-flow imbalance + DeepLOB (real foresight, below the cost bar)
 
+> **Correction.** The net Sharpe, trade count and DSR in the archived account
+> below are withdrawn. The July 2026 audit found that the original pipeline
+> double-charged round-trip costs and its processed book contained clock gaps.
+> A corrected licensed-data replay is pending. The published perfect-foresight
+> and cost comparisons also await re-verification. [Companion correction](https://github.com/MonolithResearch/deeplob-microstructure/pull/1)
+
 **Tier 3 — Overfit / sign-flips at cost.** In-sample Sharpe **10.81** → net Sharpe
 **-14.63** at 3× cost over **2,264** trades. DSR **≈ 0** vs selection-max 0.78.
 

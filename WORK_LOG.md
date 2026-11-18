@@ -68,3 +68,15 @@ The dataset remains historical summary evidence. No licensed market-data replay,
 new trading signal, live-system check, capital claim or deployment occurred.
 The synthetic demo is educational and deliberately issues no promotion verdict.
 See [PROVENANCE.md](PROVENANCE.md) for source boundaries and corrections.
+
+## 2026-11-18 · Timing and accounting corrections
+
+Added the July funding-carry reconstruction and the E4 passive-fill audit.
+Each study identifies the dated evidence, the broken assumption and the
+scope of the corrected result. Linked both from the index and added the
+withdrawal notice above the historical DeepLOB account. The source records
+do not supply complete numeric gate inputs for new ranking rows.
+
+Verification used `python -m pytest -q` and `python scripts/audit_dataset.py`.
+The audit still reports 39 rows, with 2 complete numeric failures and 37
+incomplete records.
