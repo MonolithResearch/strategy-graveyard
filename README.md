@@ -5,7 +5,7 @@
 
 **Research post-mortems, reproducible checks, and the limits of a good backtest.**
 
-39 historical summaries · 8 case studies · Synthetic demonstration
+39 historical summaries · 10 case studies · Synthetic demonstration
 </div>
 
 Monolith Research's record of rejected and constrained trading ideas. The useful
@@ -55,12 +55,12 @@ The chart shows 34 reported DSR values. Five records lack a reported DSR and are
 omitted. The bars mix historically documented designs and evidence scopes; use
 them for navigation, not as a standardized ranking of independently rerun studies.
 
-## Eight post-mortems
+## Ten post-mortems
 
 - [Mean-reversion pairs](case_studies/01_ou_m5_stat_arb.md): search selection and
   an out-of-sample reversal.
-- [Order flow and DeepLOB](case_studies/02_ofi_deeplob.md): predictive structure
-  that did not clear the modeled execution-cost barrier.
+- [Order flow and DeepLOB](case_studies/02_ofi_deeplob.md) records a withdrawn
+  net result after a round-trip cost error and gaps in the bar clock.
 - [Genetic-programming equity](case_studies/03_gp_us_equity.md): a promising
   development result rejected by a registered holdout.
 - [COT anti-crowding](case_studies/04_cot_anti_crowding.md): weak held-out evidence
@@ -73,10 +73,14 @@ them for navigation, not as a standardized ranking of independently rerun studie
   historical DSR failed to settle liquidity and universe sensitivity.
 - [Closed-end-fund discounts](case_studies/08_cef_discount_reversion.md):
   residual beta and sensitivity to an execution delay.
+- [Funding carry with a missing hedge return](case_studies/09_funding_carry.md)
+  follows a funding payment into a portfolio with missing price legs.
+- [The passive quote that knew its own fill](case_studies/10_maker_fill_timing.md)
+  traces a quoting signal back to the trade it claimed to anticipate.
 
-The first six articles retain their historical wording. Their dated numerical and
-operational statements are not assertions about present systems. The two added
-articles distinguish reported measurements from interpretations of their cause.
+The early articles retain their historical wording. The notice on the DeepLOB
+article identifies the superseded figures. The funding and passive-fill studies
+cite the dated internal records that support their corrections.
 
 ## What a reviewer can inspect
 
